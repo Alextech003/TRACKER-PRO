@@ -117,7 +117,7 @@ export function ServiceForm() {
       let finalVideoUrl = videoUrl;
       // If we selected a NEW file, we must upload it
       if (videoFile) {
-        const path = `videos/${user.uid}/${Date.now()}_${videoFile.name}`;
+        const path = `videos/${user.id}/${Date.now()}_${videoFile.name}`;
         finalVideoUrl = await uploadFile(videoFile, path);
       }
 
@@ -135,13 +135,13 @@ export function ServiceForm() {
 
       if (id) {
         // Can only update if they own it or are admin
-        if (recordUserId !== user.uid && userProfile?.role !== 'admin') {
+        if (recordUserId !== user.id && userProfile?.role !== 'admin') {
            throw new Error('Permissão negada para editar este registro.');
         }
         await updateRecord(id, recordData);
       } else {
         await saveRecord({
-          userId: user.uid,
+          userId: user.id,
           ...recordData
         });
       }

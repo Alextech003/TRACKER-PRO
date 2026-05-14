@@ -2,9 +2,27 @@ import { useState, FormEvent, useEffect } from 'react';
 import { ArrowLeft, Loader2, UserPlus, Trash2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { useAuth } from './AuthProvider';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { secondaryAuth } from '../lib/firebaseSecondary';
 import { saveUserProfile, subscribeUsers, UserProfile, deleteUserById, updateUserRole } from '../lib/userStorage';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://mgabikdbuelwynmgazfo.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_kGXuX1lFglmuJm3U59xHUA_X4uml3lo';
+
+// Create a secondary client that doesn't persist the session
+// Custom memory storage to avoid clobbering the master acc session
+const dummyStorage = {
+  getItem: () => null,
+  setItem: () => {},
+  removeItem: () => {},
+};
+
+const secondarySupabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: dummyStorage,
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
 
 export function AdminPanel() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
@@ -52,22 +70,31 @@ export function AdminPanel() {
     try {
       const email = username.includes('@') ? username : `${username.toLowerCase().trim()}@trackerpro.com`;
       
-      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
-      const newUser = userCredential.user;
-      
-      await saveUserProfile({
-        uid: newUser.uid,
-        username: username,
-        email: email,
-        role: role
+      const { data, error } = await secondarySupabase.auth.signUp({
+        email,
+        password
       });
 
-      // Sign out of the secondary auth to clean up state
-      await secondaryAuth.signOut();
+      if (error) {
+         setMessage(`Erro: ${error.message}`);
+         return;
+      }
 
-      setMessage(`Membro ${username} criado com sucesso!`);
-      setUsername('');
-      setPassword('');
+      const newUser = data.user;
+      if (newUser) {
+        await saveUserProfile({
+          uid: newUser.id,
+          username: username,
+          email: email,
+          role: role
+        });
+
+        setMessage(`Membro ${username} criado com sucesso!`);
+        setUsername('');
+        setPassword('');
+      } else {
+        setMessage('Erro ao obter dados do usuário recém criado.');
+      }
     } catch (error: any) {
       setMessage(`Erro: ${error.message}`);
     } finally {

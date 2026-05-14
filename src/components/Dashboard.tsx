@@ -4,7 +4,7 @@ import { ServiceRecord } from '../types';
 import { Truck } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { subscribeRecords } from '../lib/storage';
-import { auth } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 import { updateUserLastAccess } from '../lib/userStorage';
 
 export function Dashboard() {
@@ -13,13 +13,13 @@ export function Dashboard() {
   const [records, setRecords] = useState<ServiceRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const isMasterAccount = user?.email === 'alexs.passos3@gmail.com' || user?.email === 'master@trackerpro.com';
+  const isMasterAccount = user?.email === 'alexs.passos3@gmail.com' || user?.email === 'master@trackerpro.com' || userProfile?.role === 'admin';
   const canCreate = isMasterAccount || userProfile?.role === 'admin' || userProfile?.role === 'tecnico_criador';
 
   useEffect(() => {
     if (!user) return;
     
-    updateUserLastAccess(user.uid).catch(console.error);
+    updateUserLastAccess(user.id).catch(console.error);
 
     const unsubscribe = subscribeRecords((data) => {
        setRecords(data);
@@ -29,8 +29,8 @@ export function Dashboard() {
     return () => unsubscribe();
   }, [user]);
 
-  const handleLogout = () => {
-    auth.signOut();
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     navigate('/login');
   };
 
@@ -60,7 +60,7 @@ export function Dashboard() {
               <p className="text-[10px] text-green-500">● Online</p>
             </div>
             <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center border-2 border-amber-500 overflow-hidden shrink-0">
-               {user?.photoURL ? <img src={user.photoURL} alt="User" /> : <span className="text-sm font-bold text-white">{user?.email?.charAt(0).toUpperCase() || 'U'}</span>}
+               {user?.user_metadata?.avatar_url ? <img src={user.user_metadata.avatar_url} alt="User" /> : <span className="text-sm font-bold text-white">{user?.email?.charAt(0).toUpperCase() || 'U'}</span>}
             </div>
           </div>
         </div>

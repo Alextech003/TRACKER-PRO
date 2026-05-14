@@ -1,7 +1,6 @@
 import { useState, FormEvent } from 'react';
 import { Wrench, Loader2 } from 'lucide-react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router';
 
 export function Login() {
@@ -17,35 +16,48 @@ export function Login() {
     setError('');
 
     try {
-      // Transform username into email format for Firebase
+      // Transform username into email format for Supabase
       const loginEmail = username.includes('@') ? username : `${username.toLowerCase().trim()}@trackerpro.com`;
       
-      try {
-        await signInWithEmailAndPassword(auth, loginEmail, password);
-        navigate('/');
-      } catch (err: any) {
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password: password,
+      });
+
+      if (signInError) {
         // Se for a conta master e falhar, pode ser que não tenha sido criada com senha ainda
         if (loginEmail === 'master@trackerpro.com' || loginEmail === 'alexs.passos3@gmail.com') {
-          try {
-            const { createUserWithEmailAndPassword } = await import('firebase/auth');
-            await createUserWithEmailAndPassword(auth, loginEmail, password);
-            navigate('/');
-            return;
-          } catch (createErr: any) {
-            if (createErr.code === 'auth/email-already-in-use') {
-              setError('Senha incorreta para a conta master.');
-            } else {
-              setError(createErr.message || 'Erro ao criar conta master.');
-            }
-            return;
-          }
+           const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+             email: loginEmail,
+             password: password,
+           });
+           
+           if (signUpError) {
+             if (signUpError.message.includes('already registered')) {
+               setError('Senha incorreta para a conta master.');
+             } else {
+               setError(signUpError.message || 'Erro ao criar conta master.');
+             }
+             return;
+           }
+           
+           // Se der sucesso, precisamos inserir na tabela users do master manualmente? 
+           // Normalmente Supabase cria o usuário, ele estará logado se o e-mail não requerer confirmação
+           navigate('/');
+           return;
         }
 
-        if (err.code === 'auth/invalid-credential') {
+        if (signInError.message.includes('Invalid login credentials')) {
           setError('Usuário ou senha incorretos.');
+        } else if (signInError.message.toLowerCase().includes('email rate limit exceeded')) {
+          setError('Muitas tentativas! Por favor, aguarde alguns minutos antes de tentar novamente.');
+        } else if (signInError.message.toLowerCase().includes('email not confirmed')) {
+          setError('O e-mail precisa ser confirmado. Vá no Supabase > Authentication > Providers > Email e desmarque "Confirm email".');
         } else {
-          setError(err.message || 'Erro ao realizar login.');
+          setError(signInError.message || 'Erro ao realizar login.');
         }
+      } else {
+        navigate('/');
       }
     } finally {
       setLoading(false);

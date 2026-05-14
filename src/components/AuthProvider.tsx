@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth, db } from '../lib/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { supabase } from '../lib/supabase';
+import { User } from '@supabase/supabase-js';
 import { UserProfile } from '../lib/userStorage';
 
 interface AuthContextType {
@@ -18,29 +17,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
-      
-      if (firebaseUser) {
-        const unsubscribeProfile = onSnapshot(doc(db, 'users', firebaseUser.uid), (docSnap) => {
-          if (docSnap.exists()) {
-            setUserProfile(docSnap.data() as UserProfile);
-          }
-          setLoading(false);
-        }, (err) => {
-          console.error("Error fetching profile", err);
-          setLoading(false);
-        });
-        
-        return () => unsubscribeProfile();
-      } else {
-        setUserProfile(null);
-        setLoading(false);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (!session?.user) setLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (!session?.user) {
+         setUserProfile(null);
+         setLoading(false);
       }
     });
 
-    return () => unsubscribe();
+    return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    
+    let isMounted = true;
+    
+    const fetchProfile = async () => {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('uid', user.id)
+        .single();
+        
+      if (data && isMounted) {
+        setUserProfile(data as UserProfile);
+      }
+      if (isMounted) setLoading(false);
+    };
+
+    fetchProfile();
+
+    // Supabase Realtime for profile updates
+    const channel = supabase
+      .channel(`public:users:uid=eq.${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'users', filter: `uid=eq.${user.id}` },
+        (payload) => {
+          if (payload.new && isMounted) {
+            setUserProfile(payload.new as UserProfile);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   return (
     <AuthContext.Provider value={{ user, userProfile, loading }}>

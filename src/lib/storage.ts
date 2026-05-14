@@ -1,128 +1,164 @@
 import { ServiceRecord } from '../types';
-import { db, storage } from './firebase';
-import { collection, doc, setDoc, deleteDoc, onSnapshot, getDoc, serverTimestamp, getDocs, query, orderBy, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
-import { handleFirestoreError, OperationType } from './firestoreError';
+import { supabase } from './supabase';
 
 const COLLECTION_NAME = 'service_records';
 
 export const uploadFile = async (file: File | Blob, path: string): Promise<string> => {
-  const storageRef = ref(storage, path);
   try {
-    const uploadTask = uploadBytesResumable(storageRef, file);
-    return await new Promise((resolve, reject) => {
-      uploadTask.on(
-        'state_changed',
-        null,
-        (error) => reject(error),
-        async () => {
-          try {
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            resolve(downloadURL);
-          } catch (err) {
-            reject(err);
-          }
-        }
-      );
-    });
+    const { data, error } = await supabase.storage
+      .from('media') // The user needs to create a 'media' bucket in Supabase storage
+      .upload(path, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (error) throw error;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('media')
+      .getPublicUrl(path);
+
+    return publicUrl;
   } catch (error) {
-    throw new Error('Falha ao enviar vídeo. Certifique-se de que o Firebase Storage está ativado no seu projeto Firebase.');
+    console.error("Upload error", error);
+    throw new Error('Falha ao enviar arquivo para o Supabase Storage.');
   }
 };
 
 export const subscribeRecords = (callback: (records: ServiceRecord[]) => void) => {
-  const q = query(collection(db, COLLECTION_NAME), orderBy('createdAt', 'desc'));
-  return onSnapshot(q, (snapshot) => {
-    const records = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: doc.data().createdAt?.toDate(),
-      updatedAt: doc.data().updatedAt?.toDate()
-    })) as ServiceRecord[];
-    callback(records);
-  }, (error) => {
-    handleFirestoreError(error, OperationType.LIST, COLLECTION_NAME);
-  });
+  let isSubscribed = true;
+
+  const fetchInitial = async () => {
+    const { data, error } = await supabase
+      .from(COLLECTION_NAME)
+      .select('*')
+      .order('createdAt', { ascending: false });
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    if (isSubscribed && data) {
+        const records = data.map(doc => ({
+            ...doc,
+            createdAt: new Date(doc.createdAt),
+            updatedAt: new Date(doc.updatedAt)
+        })) as ServiceRecord[];
+        callback(records);
+    }
+  };
+
+  fetchInitial();
+
+  const channel = supabase
+    .channel('public:service_records')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: COLLECTION_NAME },
+      () => {
+        fetchInitial();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    isSubscribed = false;
+    supabase.removeChannel(channel);
+  };
 };
 
 export const saveRecord = async (record: Omit<ServiceRecord, 'id' | 'createdAt' | 'updatedAt'>) => {
   try {
-    const docRef = doc(collection(db, COLLECTION_NAME));
-    await setDoc(docRef, {
-      ...record,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
+    const { error } = await supabase
+      .from(COLLECTION_NAME)
+      .insert({
+        ...record,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+      
+    if (error) throw error;
   } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, COLLECTION_NAME);
+    console.error(error);
+    throw error;
   }
 };
 
 export const getRecordById = async (id: string): Promise<ServiceRecord | null> => {
   try {
-    const docRef = doc(db, COLLECTION_NAME, id);
-    const snapshot = await getDoc(docRef);
-    if (snapshot.exists()) {
+    const { data, error } = await supabase
+      .from(COLLECTION_NAME)
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+
+    if (data) {
       return {
-        id: snapshot.id,
-        ...snapshot.data(),
-        createdAt: snapshot.data().createdAt?.toDate(),
-        updatedAt: snapshot.data().updatedAt?.toDate()
+        ...data,
+        createdAt: new Date(data.createdAt),
+        updatedAt: new Date(data.updatedAt)
       } as ServiceRecord;
     }
     return null;
   } catch (error) {
-    handleFirestoreError(error, OperationType.GET, `${COLLECTION_NAME}/${id}`);
+    console.error(error);
     return null;
   }
 };
 
 export const deleteRecordById = async (id: string) => {
   try {
-    await deleteDoc(doc(db, COLLECTION_NAME, id));
+    const { error } = await supabase
+      .from(COLLECTION_NAME)
+      .delete()
+      .eq('id', id);
+      
+    if (error) throw error;
   } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, `${COLLECTION_NAME}/${id}`);
+    console.error(error);
+    throw error;
   }
 };
 
 export const updateRecord = async (id: string, updates: Partial<Omit<ServiceRecord, 'id' | 'createdAt' | 'updatedAt' | 'userId'>>) => {
   try {
-    const docRef = doc(db, COLLECTION_NAME, id);
-    await updateDoc(docRef, {
-      ...updates,
-      updatedAt: serverTimestamp()
-    });
+    const { error } = await supabase
+      .from(COLLECTION_NAME)
+      .update({
+        ...updates,
+        updatedAt: new Date().toISOString()
+      })
+      .eq('id', id);
+
+    if (error) throw error;
   } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, `${COLLECTION_NAME}/${id}`);
+    console.error(error);
+    throw error;
   }
 };
 
 export const getRelatedRecords = async (make: string, model: string, excludeId: string): Promise<ServiceRecord[]> => {
   try {
-    const q = query(
-      collection(db, COLLECTION_NAME),
-      // Firebase needs an index if we order, so we will just fetch them and sort client-side to avoid index requirement for equal filters
-    );
-    const snapshot = await getDocs(q);
-    const records = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: doc.data().createdAt?.toDate(),
-      updatedAt: doc.data().updatedAt?.toDate()
+    const { data, error } = await supabase
+      .from(COLLECTION_NAME)
+      .select('*')
+      .eq('vehicleMake', make)
+      .eq('vehicleModel', model)
+      .neq('id', excludeId)
+      .order('createdAt', { ascending: false });
+
+    if (error) throw error;
+
+    return (data || []).map(doc => ({
+      ...doc,
+      createdAt: new Date(doc.createdAt),
+      updatedAt: new Date(doc.updatedAt)
     })) as ServiceRecord[];
-    
-    return records.filter(r => 
-      r.id !== excludeId && 
-      r.vehicleMake.toLowerCase() === make.toLowerCase() && 
-      r.vehicleModel.toLowerCase() === model.toLowerCase()
-    ).sort((a, b) => {
-       if (a.createdAt && b.createdAt) {
-         return b.createdAt.getTime() - a.createdAt.getTime();
-       }
-       return 0;
-    });
   } catch (error) {
-    handleFirestoreError(error, OperationType.LIST, COLLECTION_NAME);
+    console.error(error);
     return [];
   }
 };

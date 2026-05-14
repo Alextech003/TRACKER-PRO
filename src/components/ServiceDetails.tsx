@@ -15,7 +15,7 @@ export function ServiceDetails() {
   const [zoomedImg, setZoomedImg] = useState<string | null>(null);
 
   const isAdmin = user?.email === 'alexs.passos3@gmail.com' || user?.email === 'master@trackerpro.com' || userProfile?.role === 'admin';
-  const canDelete = isAdmin || (record && user && record.userId === user.uid);
+  const canDelete = isAdmin || (record && user && record.userId === user.id);
 
   useEffect(() => {
     async function loadRecord() {
