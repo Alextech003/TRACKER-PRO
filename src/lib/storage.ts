@@ -1,9 +1,34 @@
 import { ServiceRecord } from '../types';
-import { db } from './firebase';
-import { collection, doc, setDoc, deleteDoc, onSnapshot, getDoc, serverTimestamp, getDocs, query, orderBy } from 'firebase/firestore';
+import { db, storage } from './firebase';
+import { collection, doc, setDoc, deleteDoc, onSnapshot, getDoc, serverTimestamp, getDocs, query, orderBy, updateDoc } from 'firebase/firestore';
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { handleFirestoreError, OperationType } from './firestoreError';
 
 const COLLECTION_NAME = 'service_records';
+
+export const uploadFile = async (file: File | Blob, path: string): Promise<string> => {
+  const storageRef = ref(storage, path);
+  try {
+    const uploadTask = uploadBytesResumable(storageRef, file);
+    return await new Promise((resolve, reject) => {
+      uploadTask.on(
+        'state_changed',
+        null,
+        (error) => reject(error),
+        async () => {
+          try {
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            resolve(downloadURL);
+          } catch (err) {
+            reject(err);
+          }
+        }
+      );
+    });
+  } catch (error) {
+    throw new Error('Falha ao enviar vídeo. Certifique-se de que o Firebase Storage está ativado no seu projeto Firebase.');
+  }
+};
 
 export const subscribeRecords = (callback: (records: ServiceRecord[]) => void) => {
   const q = query(collection(db, COLLECTION_NAME), orderBy('createdAt', 'desc'));
@@ -57,6 +82,18 @@ export const deleteRecordById = async (id: string) => {
     await deleteDoc(doc(db, COLLECTION_NAME, id));
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, `${COLLECTION_NAME}/${id}`);
+  }
+};
+
+export const updateRecord = async (id: string, updates: Partial<Omit<ServiceRecord, 'id' | 'createdAt' | 'updatedAt' | 'userId'>>) => {
+  try {
+    const docRef = doc(db, COLLECTION_NAME, id);
+    await updateDoc(docRef, {
+      ...updates,
+      updatedAt: serverTimestamp()
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `${COLLECTION_NAME}/${id}`);
   }
 };
 

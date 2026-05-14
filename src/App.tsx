@@ -47,6 +47,14 @@ export default function App() {
             } 
           />
           <Route 
+            path="/edit/:id" 
+            element={
+              <ProtectedRoute>
+                <ServiceForm />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
             path="/service/:id" 
             element={
               <ProtectedRoute>

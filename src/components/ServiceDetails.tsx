@@ -12,6 +12,7 @@ export function ServiceDetails() {
   const [record, setRecord] = useState<ServiceRecord | null>(null);
   const [relatedRecords, setRelatedRecords] = useState<ServiceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [zoomedImg, setZoomedImg] = useState<string | null>(null);
 
   const isAdmin = user?.email === 'alexs.passos3@gmail.com' || user?.email === 'master@trackerpro.com' || userProfile?.role === 'admin';
   const canDelete = isAdmin || (record && user && record.userId === user.uid);
@@ -90,15 +91,25 @@ export function ServiceDetails() {
              <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">INFO DO REGISTRO</p>
           </div>
         </div>
-        {canDelete && (
-          <button 
-            onClick={() => setShowDeleteConfirm(true)}
-            className="w-10 h-10 flex items-center justify-center text-red-500 bg-red-500/10 border border-red-500/20 rounded-xl hover:bg-red-500/20 transition-colors"
-            title="Excluir"
-          >
-            <Trash2 size={20} />
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {canDelete && (
+            <>
+              <Link 
+                to={`/edit/${id}`}
+                className="px-4 h-10 flex items-center justify-center text-amber-500 bg-amber-500/10 border border-amber-500/20 rounded-xl hover:bg-amber-500/20 transition-colors text-xs font-bold uppercase tracking-widest"
+              >
+                Editar
+              </Link>
+              <button 
+                onClick={() => setShowDeleteConfirm(true)}
+                className="w-10 h-10 flex items-center justify-center text-red-500 bg-red-500/10 border border-red-500/20 rounded-xl hover:bg-red-500/20 transition-colors"
+                title="Excluir"
+              >
+                <Trash2 size={20} />
+              </button>
+            </>
+          )}
+        </div>
       </header>
 
       {showDeleteConfirm && (
@@ -124,6 +135,12 @@ export function ServiceDetails() {
         </div>
       )}
 
+      {zoomedImg && (
+        <div className="fixed inset-0 bg-black/95 z-[60] flex items-center justify-center p-4 cursor-zoom-out" onClick={() => setZoomedImg(null)}>
+          <img src={zoomedImg} alt="Zoom" className="max-w-full max-h-full object-contain" />
+        </div>
+      )}
+
       <main className="max-w-3xl mx-auto p-4 mt-4">
         <div className="bg-[#1C1C1E] rounded-3xl border border-slate-800 overflow-hidden shadow-xl">
           {record.videoUrl && (
@@ -131,9 +148,9 @@ export function ServiceDetails() {
               <video src={record.videoUrl} controls className="w-full h-full object-contain" />
             </div>
           )}
-          {!record.videoUrl && record.photoUrl && (
-            <div className="aspect-video bg-black w-full relative border-b border-slate-800">
-              <img src={record.photoUrl} alt="Foto da instalação" className="w-full h-full object-contain" />
+          {record.photoUrl && (
+            <div className="aspect-video bg-black w-full relative border-b border-slate-800 cursor-zoom-in overflow-hidden group" onClick={() => setZoomedImg(record.photoUrl)}>
+              <img src={record.photoUrl} alt="Foto da instalação" className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />
             </div>
           )}
           {!record.videoUrl && !record.photoUrl && (

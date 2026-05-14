@@ -1,20 +1,22 @@
 import { useState, useRef, ChangeEvent, FormEvent, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useNavigate, useSearchParams, useParams } from 'react-router';
 import { useAuth } from './AuthProvider';
 import { ServiceType } from '../types';
 import { Camera, ArrowLeft, Loader2, Video } from 'lucide-react';
 import { Link } from 'react-router';
-import { saveRecord } from '../lib/storage';
+import { saveRecord, uploadFile, getRecordById, updateRecord } from '../lib/storage';
 
 export function ServiceForm() {
   const { user, userProfile } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { id } = useParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [photoBase64, setPhotoBase64] = useState<string>('');
-  const [videoBase64, setVideoBase64] = useState<string>('');
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string>('');
   
   const initialType = (searchParams.get('type') as ServiceType) || 'BLOQUEIO';
   const initialMake = searchParams.get('make') || '';
@@ -28,6 +30,29 @@ export function ServiceForm() {
     date: new Date().toISOString().split('T')[0],
     notes: ''
   });
+
+  const [recordUserId, setRecordUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (id) {
+      getRecordById(id).then(record => {
+        if (record) {
+          setFormData({
+            serviceType: record.serviceType,
+            vehicleMake: record.vehicleMake,
+            vehicleModel: record.vehicleModel,
+            vehicleYear: record.vehicleYear || '',
+            blockPoint: record.blockPoint || '',
+            date: record.date.split('T')[0],
+            notes: record.notes || ''
+          });
+          if (record.photoUrl) setPhotoBase64(record.photoUrl);
+          if (record.videoUrl) setVideoUrl(record.videoUrl);
+          setRecordUserId(record.userId);
+        }
+      });
+    }
+  }, [id]);
 
   const handlePhotoCapture = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -59,19 +84,14 @@ export function ServiceForm() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Optional: add a size check to not block localStorage immediately.
-    if (file.size > 700 * 1024) {
-      alert("O vídeo é muito grande para o Firestore. Escolha vídeos muito pequenos, menores que 700KB. No futuro, adicionaremos o Firebase Storage.");
+    if (file.size > 20 * 1024 * 1024) { // 20MB limit for Firebase Storage
+      alert("O vídeo é muito grande. O limite máximo é de 20MB.");
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        setVideoBase64(event.target.result as string);
-      }
-    };
-    reader.readAsDataURL(file);
+    setVideoFile(file);
+    const objectUrl = URL.createObjectURL(file);
+    setVideoUrl(objectUrl);
   };
 
   const { loading: authLoading } = useAuth();
@@ -94,8 +114,14 @@ export function ServiceForm() {
     setLoading(true);
 
     try {
-      await saveRecord({
-        userId: user.uid,
+      let finalVideoUrl = videoUrl;
+      // If we selected a NEW file, we must upload it
+      if (videoFile) {
+        const path = `videos/${user.uid}/${Date.now()}_${videoFile.name}`;
+        finalVideoUrl = await uploadFile(videoFile, path);
+      }
+
+      const recordData = {
         serviceType: formData.serviceType,
         vehicleMake: formData.vehicleMake,
         vehicleModel: formData.vehicleModel,
@@ -104,15 +130,29 @@ export function ServiceForm() {
         date: new Date(formData.date).toISOString(),
         notes: formData.notes,
         photoUrl: photoBase64,
-        videoUrl: videoBase64,
-      });
+        videoUrl: finalVideoUrl,
+      };
+
+      if (id) {
+        // Can only update if they own it or are admin
+        if (recordUserId !== user.uid && userProfile?.role !== 'admin') {
+           throw new Error('Permissão negada para editar este registro.');
+        }
+        await updateRecord(id, recordData);
+      } else {
+        await saveRecord({
+          userId: user.uid,
+          ...recordData
+        });
+      }
+
       setTimeout(() => {
         navigate('/');
       }, 500);
-    } catch (error) {
+    } catch (error: any) {
       setLoading(false);
       console.error(error);
-      alert('Erro ao salvar.');
+      alert(`Erro ao salvar: ${error.message || 'Erro desconhecido'}`);
     }
   };
 
@@ -123,8 +163,8 @@ export function ServiceForm() {
           <ArrowLeft size={20} />
         </Link>
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-white uppercase italic">Novo Registro</h1>
-          <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Cadastrar Instalação</p>
+          <h1 className="text-xl font-bold tracking-tight text-white uppercase italic">{id ? 'Editar Registro' : 'Novo Registro'}</h1>
+          <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">{id ? 'Atualizar Instalação' : 'Cadastrar Instalação'}</p>
         </div>
       </header>
 
@@ -174,14 +214,13 @@ export function ServiceForm() {
                   />
                 </div>
                 <div className="col-span-1">
-                  <label className="block text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-wide">Ano</label>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-wide">Ano(s)</label>
                   <input 
                     type="text" 
                     value={formData.vehicleYear}
                     onChange={e => setFormData({ ...formData, vehicleYear: e.target.value })}
                     className="w-full bg-[#121214] border border-slate-800 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none placeholder:text-slate-600"
-                    placeholder="Ex: 2025"
-                    maxLength={4}
+                    placeholder="Ex: 13-14-15 ou 2014 a 2018"
                   />
                 </div>
               </div>
@@ -257,12 +296,15 @@ export function ServiceForm() {
                 onChange={handleVideoCapture}
                 className="hidden"
               />
-              {videoBase64 ? (
+              {videoUrl ? (
                 <div className="relative rounded-xl overflow-hidden border border-slate-800 bg-black flex justify-center h-32 sm:h-48">
-                  <video src={videoBase64} controls className="h-full w-full object-contain bg-black" />
+                  <video src={videoUrl} controls className="h-full w-full object-contain bg-black" />
                   <button 
                     type="button"
-                    onClick={() => setVideoBase64('')}
+                    onClick={() => {
+                      setVideoFile(null);
+                      setVideoUrl('');
+                    }}
                     className="absolute top-2 right-2 bg-red-500/90 text-white rounded-lg px-2 py-1 text-[10px] font-bold backdrop-blur shadow-lg border border-red-400/20 hover:bg-red-500 transition-colors z-10"
                   >
                     Remover
