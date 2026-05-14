@@ -1,0 +1,104 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Primitives
+    function isSignedIn() { return request.auth != null; }
+    function isAdmin() { 
+      return isSignedIn() && 
+        (request.auth.token.email == 'alexs.passos3@gmail.com' || 
+         request.auth.token.email == 'master@trackerpro.com' || 
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
+    }
+    
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isValidServiceRecordSchema(data) {
+      return data.keys().hasOnly([
+        'userId', 'serviceType', 'vehicleMake', 'vehicleModel', 'date', 
+        'vehicleYear', 'blockPoint',
+        'notes', 'photoUrl', 'videoUrl', 'createdAt', 'updatedAt'
+      ]) &&
+      data.userId is string && data.userId.size() <= 128 &&
+      data.serviceType is string && data.serviceType in ['BLOQUEIO', 'TELEMETRIA', 'ALARME', 'OUTROS'] &&
+      data.vehicleMake is string && data.vehicleMake.size() <= 100 &&
+      data.vehicleModel is string && data.vehicleModel.size() <= 100 &&
+      data.date is string && data.date.size() <= 100 &&
+      data.createdAt == request.time &&
+      data.updatedAt == request.time &&
+      (!('vehicleYear' in data) || (data.vehicleYear is string && data.vehicleYear.size() <= 4)) &&
+      (!('blockPoint' in data) || (data.blockPoint is string && data.blockPoint.size() <= 200)) &&
+      (!('notes' in data) || (data.notes is string && data.notes.size() <= 5000)) &&
+      (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 10000000)) &&
+      (!('videoUrl' in data) || (data.videoUrl is string && data.videoUrl.size() <= 20000000));
+    }
+
+    function isValidUserSchema(data) {
+      return data.keys().hasOnly(['uid', 'username', 'email', 'role', 'createdAt', 'lastAccess']) &&
+      data.uid is string && data.uid.size() <= 128 &&
+      data.username is string && data.username.size() <= 100 &&
+      data.email is string && data.email.size() <= 100 &&
+      data.role in ['admin', 'tecnico', 'tecnico_criador'] &&
+      data.createdAt == request.time &&
+      data.lastAccess == request.time;
+    }
+    
+    match /users/{userId} {
+      allow list: if isAdmin();
+      allow get: if isSignedIn() && (isAdmin() || request.auth.uid == userId);
+      
+      allow create: if isAdmin() && 
+                    isValidId(userId) && 
+                    isValidUserSchema(incoming()) && 
+                    incoming().uid == userId;
+                    
+      allow update: if isSignedIn() && isValidId(userId) && (
+                      (
+                        isAdmin() &&
+                        incoming().diff(existing()).affectedKeys().hasOnly(['username', 'role', 'lastAccess']) &&
+                        incoming().role in ['admin', 'tecnico', 'tecnico_criador']
+                      ) ||
+                      (
+                        request.auth.uid == userId &&
+                        incoming().diff(existing()).affectedKeys().hasOnly(['lastAccess']) &&
+                        incoming().lastAccess == request.time
+                      )
+                    );
+                    
+      allow delete: if isAdmin() && isValidId(userId) && userId != request.auth.uid;
+    }
+
+    function isCreator() {
+      let isCreatorProfile = exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+                             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'tecnico_criador'];
+      return isAdmin() || isCreatorProfile;
+    }
+
+    match /service_records/{recordId} {
+      // Any authenticated user can list records (since sign-up will be restricted)
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && isValidId(recordId);
+
+      allow create: if isCreator() && 
+                    isValidId(recordId) && 
+                    isValidServiceRecordSchema(incoming()) && 
+                    incoming().userId == request.auth.uid;
+                    
+      allow update: if isCreator() && 
+                    isValidId(recordId) && 
+                    isValidServiceRecordSchema(incoming()) &&
+                    incoming().userId == existing().userId &&
+                    incoming().createdAt == existing().createdAt &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['serviceType', 'vehicleMake', 'vehicleModel', 'vehicleYear', 'blockPoint', 'date', 'notes', 'photoUrl', 'videoUrl', 'updatedAt']);
+                    
+      allow delete: if (isAdmin() || existing().userId == request.auth.uid) && isValidId(recordId);
+    }
+  }
+}

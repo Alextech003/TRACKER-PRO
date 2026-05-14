@@ -1,0 +1,108 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profiles and metadata.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The user's Firebase Auth UID."
+        },
+        "username": {
+          "type": "string",
+          "description": "The custom login username."
+        },
+        "email": {
+          "type": "string",
+          "description": "The virtual email address."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin", "tecnico", "tecnico_criador"],
+          "description": "The user's role."
+        },
+        "lastAccess": {
+          "type": "string",
+          "description": "Timestamp of last login."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "When the user was created."
+        }
+      },
+      "required": ["uid", "username", "email", "role", "createdAt", "lastAccess"]
+    },
+    "ServiceRecord": {
+      "title": "ServiceRecord",
+      "description": "Records of service installations.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "ID of the user who created the record."
+        },
+        "serviceType": {
+          "type": "string",
+          "enum": ["BLOQUEIO", "TELEMETRIA", "ALARME", "OUTROS"],
+          "description": "Type of the service provided."
+        },
+        "vehicleMake": {
+          "type": "string",
+          "description": "Make of the vehicle."
+        },
+        "vehicleModel": {
+          "type": "string",
+          "description": "Model of the vehicle."
+        },
+        "vehicleYear": {
+          "type": "string",
+          "description": "Year of the vehicle."
+        },
+        "blockPoint": {
+          "type": "string",
+          "description": "Specific point of installation/block."
+        },
+        "date": {
+          "type": "string",
+          "description": "Date of the installation in ISO format."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes for the service."
+        },
+        "photoUrl": {
+          "type": "string",
+          "description": "URL or base64 of the installation photo."
+        },
+        "videoUrl": {
+          "type": "string",
+          "description": "URL or base64 of the installation video."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Global timestamp when this record was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Global timestamp when this record was last updated."
+        }
+      },
+      "required": ["userId", "serviceType", "vehicleMake", "vehicleModel", "date", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/User"
+      },
+      "description": "Collection of all user profiles."
+    },
+    "/service_records/{recordId}": {
+      "schema": {
+        "$ref": "#/entities/ServiceRecord"
+      },
+      "description": "Collection of all service installation records."
+    }
+  }
+}

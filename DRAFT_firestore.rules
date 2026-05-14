@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Primitives
+    function isSignedIn() { return request.auth != null; }
+    function isVerifiedEmail() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function isAdmin() { 
+      return isVerifiedEmail() && 
+        (request.auth.token.email == 'alexs.passos3@gmail.com' || request.auth.token.email == 'master@trackerpro.com');
+    }
+    
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isValidServiceRecordSchema(data) {
+      return data.keys().hasOnly([
+        'userId', 'serviceType', 'vehicleMake', 'vehicleModel', 'date', 
+        'notes', 'photoUrl', 'videoUrl', 'createdAt', 'updatedAt'
+      ]) &&
+      data.userId is string && data.userId.size() <= 128 &&
+      data.serviceType is string && data.serviceType in ['BLOQUEIO', 'TELEMETRIA', 'ALARME', 'OUTROS'] &&
+      data.vehicleMake is string && data.vehicleMake.size() <= 100 &&
+      data.vehicleModel is string && data.vehicleModel.size() <= 100 &&
+      data.date is string && data.date.size() <= 100 &&
+      data.createdAt == request.time &&
+      data.updatedAt == request.time &&
+      (!('notes' in data) || (data.notes is string && data.notes.size() <= 5000)) &&
+      (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 10000000)) &&
+      (!('videoUrl' in data) || (data.videoUrl is string && data.videoUrl.size() <= 20000000));
+    }
+
+    function isValidServiceRecordUpdateSchema(data, oldData) {
+      return data.userId == oldData.userId &&
+      data.createdAt == oldData.createdAt &&
+      data.updatedAt == request.time &&
+      data.serviceType is string && data.serviceType in ['BLOQUEIO', 'TELEMETRIA', 'ALARME', 'OUTROS'] &&
+      data.vehicleMake is string && data.vehicleMake.size() <= 100 &&
+      data.vehicleModel is string && data.vehicleModel.size() <= 100 &&
+      data.date is string && data.date.size() <= 100 &&
+      (!('notes' in data) || (data.notes is string && data.notes.size() <= 5000)) &&
+      (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 10000000)) &&
+      (!('videoUrl' in data) || (data.videoUrl is string && data.videoUrl.size() <= 20000000));
+    }
+
+    match /service_records/{recordId} {
+      allow list: if isVerifiedEmail();
+      allow get: if isVerifiedEmail() && isValidId(recordId);
+
+      allow create: if isAdmin() && 
+                    isValidId(recordId) && 
+                    isValidServiceRecordSchema(incoming()) && 
+                    incoming().userId == request.auth.uid;
+                    
+      allow update: if isAdmin() && 
+                    isValidId(recordId) && 
+                    isValidServiceRecordUpdateSchema(incoming(), existing());
+                    
+      allow delete: if isAdmin() && isValidId(recordId);
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "InstalApp - Serviços em Campo",
+  "description": "Sistema para controle de serviços de campo, instalações de bloqueios, telemetria e rastreadores automotivos.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": []
+}
