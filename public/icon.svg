@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#1C1C1E" rx="120" />
+  <g transform="translate(110, 117) scale(15)">
+    <!-- Main Body -->
+    <path d="M14 16V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10h10z" fill="#FACC15" />
+    <!-- Front Cabin -->
+    <path d="M14 8h3.52a1 1 0 0 1 .78.376l3.48 4.35a1 1 0 0 1 .22.624V16h-8V8z" fill="#FACC15" />
+    <!-- Window -->
+    <path d="M15 9.5h2.5l1.5 2h-4v-2z" fill="#1C1C1E" />
+    <!-- Front Wheel -->
+    <circle cx="17" cy="16" r="2.5" fill="#FACC15" />
+    <circle cx="17" cy="16" r="1.2" fill="#1C1C1E" />
+    <!-- Back Wheel -->
+    <circle cx="7" cy="16" r="2.5" fill="#FACC15" />
+    <circle cx="7" cy="16" r="1.2" fill="#1C1C1E" />
+  </g>
+</svg>
