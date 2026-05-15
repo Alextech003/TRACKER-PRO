@@ -78,7 +78,13 @@ export const saveRecord = async (record: Omit<ServiceRecord, 'id' | 'createdAt' 
         updatedAt: new Date().toISOString()
       });
       
-    if (error) throw error;
+    if (error) {
+       console.error("Supabase error detail:", error);
+       if (error.message.includes('vehiclePhotoUrl')) {
+          throw new Error('Erro na coluna vehiclePhotoUrl. Verifique de deletar a "CHECK constraint" (length("vehiclePhotoUrl") <= 50) que fica no painel do Supabase. A foto em base64 é muito maior que 50 caracteres!');
+       }
+       throw error;
+    }
   } catch (error) {
     console.error(error);
     throw error;
@@ -133,7 +139,13 @@ export const updateRecord = async (id: string, updates: Partial<Omit<ServiceReco
       })
       .eq('id', id);
 
-    if (error) throw error;
+    if (error) {
+       console.error("Supabase error detail:", error);
+       if (error.message.includes('vehiclePhotoUrl')) {
+          throw new Error('Erro na coluna vehiclePhotoUrl. Verifique se deletou a "CHECK constraint" (length("vehiclePhotoUrl") <= 50) que fica no painel do Supabase. A foto em base64 é gigante e bloqueia!');
+       }
+       throw error;
+    }
   } catch (error) {
     console.error(error);
     throw error;

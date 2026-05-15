@@ -76,7 +76,11 @@ export function AdminPanel() {
       });
 
       if (error) {
-         setMessage(`Erro: ${error.message}`);
+         if (error.message.toLowerCase().includes('rate limit')) {
+           setMessage('Limite excedido! Vá no Supabase > Auth > Rate Limits e aumente o "Email signups" (ex: para 30).');
+         } else {
+           setMessage(`Erro: ${error.message}`);
+         }
          return;
       }
 

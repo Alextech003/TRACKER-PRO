@@ -12,9 +12,11 @@ export function ServiceForm() {
   const [searchParams] = useSearchParams();
   const { id } = useParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const vehiclePhotoInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [photoBase64, setPhotoBase64] = useState<string>('');
+  const [vehiclePhotoBase64, setVehiclePhotoBase64] = useState<string>('');
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState<string>('');
   
@@ -47,6 +49,7 @@ export function ServiceForm() {
             notes: record.notes || ''
           });
           if (record.photoUrl) setPhotoBase64(record.photoUrl);
+          if (record.vehiclePhotoUrl) setVehiclePhotoBase64(record.vehiclePhotoUrl);
           if (record.videoUrl) setVideoUrl(record.videoUrl);
           setRecordUserId(record.userId);
         }
@@ -65,13 +68,45 @@ export function ServiceForm() {
         // Resize and compress
         const canvas = document.createElement('canvas');
         const MAX_WIDTH = 800;
-        const scaleSize = MAX_WIDTH / img.width;
-        canvas.width = MAX_WIDTH;
+        let scaleSize = 1;
+        if (img.width > MAX_WIDTH) {
+           scaleSize = MAX_WIDTH / img.width;
+        }
+        canvas.width = img.width * scaleSize;
         canvas.height = img.height * scaleSize;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // 60% quality
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.5); // 50% quality
         setPhotoBase64(dataUrl);
+      };
+      if (event.target?.result) {
+        img.src = event.target.result as string;
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleVehiclePhotoCapture = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        // Resize and compress
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800;
+        let scaleSize = 1;
+        if (img.width > MAX_WIDTH) {
+           scaleSize = MAX_WIDTH / img.width;
+        }
+        canvas.width = img.width * scaleSize;
+        canvas.height = img.height * scaleSize;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.5); // 50% quality
+        setVehiclePhotoBase64(dataUrl);
       };
       if (event.target?.result) {
         img.src = event.target.result as string;
@@ -130,6 +165,7 @@ export function ServiceForm() {
         date: new Date(formData.date).toISOString(),
         notes: formData.notes,
         photoUrl: photoBase64,
+        vehiclePhotoUrl: vehiclePhotoBase64,
         videoUrl: finalVideoUrl,
       };
 
@@ -250,7 +286,42 @@ export function ServiceForm() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Foto do Veículo</label>
+              <input 
+                type="file" 
+                accept="image/*" 
+                capture="environment" 
+                ref={vehiclePhotoInputRef}
+                onChange={handleVehiclePhotoCapture}
+                className="hidden"
+              />
+              {vehiclePhotoBase64 ? (
+                <div className="relative rounded-xl overflow-hidden border border-slate-800 bg-black flex justify-center h-32 sm:h-36">
+                  <img src={vehiclePhotoBase64} alt="Captured" className="h-full object-contain" />
+                  <button 
+                    type="button"
+                    onClick={() => setVehiclePhotoBase64('')}
+                    className="absolute top-2 right-2 bg-red-500/90 text-white rounded-lg px-2 py-1 text-[10px] font-bold backdrop-blur shadow-lg border border-red-400/20 hover:bg-red-500 transition-colors"
+                  >
+                    Remover
+                  </button>
+                </div>
+              ) : (
+                <button 
+                  type="button"
+                  onClick={() => vehiclePhotoInputRef.current?.click()}
+                  className="w-full flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-700 rounded-xl bg-[#121214] hover:bg-slate-800 transition-colors text-slate-500 min-h-32 sm:min-h-36 text-center"
+                >
+                  <div className="w-8 h-8 bg-slate-800 rounded-xl flex items-center justify-center mb-2 text-green-500">
+                    <Camera size={18} />
+                  </div>
+                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wide">Foto do Veículo</span>
+                </button>
+              )}
+            </div>
+
             <div>
               <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Foto da Instalação (Local / Fio)</label>
               <input 
@@ -262,7 +333,7 @@ export function ServiceForm() {
                 className="hidden"
               />
               {photoBase64 ? (
-                <div className="relative rounded-xl overflow-hidden border border-slate-800 bg-black flex justify-center h-32 sm:h-48">
+                <div className="relative rounded-xl overflow-hidden border border-slate-800 bg-black flex justify-center h-32 sm:h-36">
                   <img src={photoBase64} alt="Captured" className="h-full object-contain" />
                   <button 
                     type="button"
@@ -276,12 +347,12 @@ export function ServiceForm() {
                 <button 
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-700 rounded-xl bg-[#121214] hover:bg-slate-800 transition-colors text-slate-500 min-h-32 sm:min-h-48 text-center"
+                  className="w-full flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-700 rounded-xl bg-[#121214] hover:bg-slate-800 transition-colors text-slate-500 min-h-32 sm:min-h-36 text-center"
                 >
-                  <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center mb-2 text-amber-500">
-                    <Camera size={20} />
+                  <div className="w-8 h-8 bg-slate-800 rounded-xl flex items-center justify-center mb-2 text-amber-500">
+                    <Camera size={18} />
                   </div>
-                  <span className="text-xs font-bold uppercase tracking-wide">Adicionar Foto</span>
+                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wide">Foto da Instalação</span>
                 </button>
               )}
             </div>
@@ -297,7 +368,7 @@ export function ServiceForm() {
                 className="hidden"
               />
               {videoUrl ? (
-                <div className="relative rounded-xl overflow-hidden border border-slate-800 bg-black flex justify-center h-32 sm:h-48">
+                <div className="relative rounded-xl overflow-hidden border border-slate-800 bg-black flex justify-center h-32 sm:h-36">
                   <video src={videoUrl} controls className="h-full w-full object-contain bg-black" />
                   <button 
                     type="button"
@@ -314,12 +385,12 @@ export function ServiceForm() {
                 <button 
                   type="button"
                   onClick={() => videoInputRef.current?.click()}
-                  className="w-full flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-700 rounded-xl bg-[#121214] hover:bg-slate-800 transition-colors text-slate-500 min-h-32 sm:min-h-48 text-center"
+                  className="w-full flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-700 rounded-xl bg-[#121214] hover:bg-slate-800 transition-colors text-slate-500 min-h-32 sm:min-h-36 text-center"
                 >
-                  <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center mb-2 text-blue-500">
-                    <Video size={20} />
+                  <div className="w-8 h-8 bg-slate-800 rounded-xl flex items-center justify-center mb-2 text-blue-500">
+                    <Video size={18} />
                   </div>
-                  <span className="text-xs font-bold uppercase tracking-wide">Adicionar Vídeo</span>
+                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wide">Vídeo da Instalação</span>
                 </button>
               )}
             </div>

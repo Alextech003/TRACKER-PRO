@@ -11,6 +11,7 @@ export interface ServiceRecord {
   date: string; // ISO string 8601
   notes?: string;
   photoUrl?: string; // base64 or storage url
+  vehiclePhotoUrl?: string; // base64 or storage url
   videoUrl?: string; // base64 or storage url
   createdAt?: Date;
   updatedAt?: Date;

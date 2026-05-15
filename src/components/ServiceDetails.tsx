@@ -143,17 +143,25 @@ export function ServiceDetails() {
 
       <main className="max-w-3xl mx-auto p-4 mt-4">
         <div className="bg-[#1C1C1E] rounded-3xl border border-slate-800 overflow-hidden shadow-xl">
-          {record.videoUrl && (
-            <div className="aspect-video bg-black w-full relative border-b border-slate-800">
-              <video src={record.videoUrl} controls className="w-full h-full object-contain" />
+          {record.vehiclePhotoUrl && (
+            <div className="aspect-video bg-black w-full relative border-b border-slate-800 cursor-zoom-in overflow-hidden group" onClick={() => setZoomedImg(record.vehiclePhotoUrl || '')}>
+              <div className="absolute top-2 left-2 z-10 bg-black/60 backdrop-blur-sm px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest text-white border border-white/10">Veículo</div>
+              <img src={record.vehiclePhotoUrl} alt="Foto do veículo" className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />
             </div>
           )}
           {record.photoUrl && (
-            <div className="aspect-video bg-black w-full relative border-b border-slate-800 cursor-zoom-in overflow-hidden group" onClick={() => setZoomedImg(record.photoUrl)}>
+            <div className="aspect-video bg-black w-full relative border-b border-slate-800 cursor-zoom-in overflow-hidden group" onClick={() => setZoomedImg(record.photoUrl || '')}>
+              <div className="absolute top-2 left-2 z-10 bg-black/60 backdrop-blur-sm px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest text-white border border-white/10">Instalação</div>
               <img src={record.photoUrl} alt="Foto da instalação" className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />
             </div>
           )}
-          {!record.videoUrl && !record.photoUrl && (
+          {record.videoUrl && (
+            <div className="aspect-video bg-black w-full relative border-b border-slate-800">
+              <div className="absolute top-2 left-2 z-10 bg-black/60 backdrop-blur-sm px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest text-white border border-white/10">Vídeo</div>
+              <video src={record.videoUrl} controls className="w-full h-full object-contain" />
+            </div>
+          )}
+          {!record.videoUrl && !record.photoUrl && !record.vehiclePhotoUrl && (
             <div className="aspect-video bg-gradient-to-br from-[#1C1C1E] to-[#121214] w-full flex flex-col items-center justify-center text-slate-600 border-b border-slate-800">
               <div className="flex gap-4">
                 <Camera size={40} className="mb-4 opacity-20" />

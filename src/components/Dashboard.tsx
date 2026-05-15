@@ -148,7 +148,9 @@ export function Dashboard() {
                   >
                     <div className="flex gap-4 items-center">
                       <div className="w-12 h-12 bg-slate-800 rounded-lg overflow-hidden flex items-center justify-center text-[10px] text-slate-500 italic shrink-0 font-mono">
-                        {record.photoUrl ? (
+                        {record.vehiclePhotoUrl ? (
+                          <img src={record.vehiclePhotoUrl} alt="Veículo" className="w-full h-full object-cover opacity-80" />
+                        ) : record.photoUrl ? (
                           <img src={record.photoUrl} alt="Thumb" className="w-full h-full object-cover opacity-80" />
                         ) : record.videoUrl ? (
                           <video src={record.videoUrl} className="w-full h-full object-cover opacity-80" />

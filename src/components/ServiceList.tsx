@@ -87,37 +87,40 @@ export function ServiceList() {
             Nenhum veículo corresponde à sua busca.
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredRecords.map(record => (
               <Link 
                 key={record.id}
                 to={`/service/${record.id}`}
-                className={`flex items-center justify-between p-4 bg-[#1C1C1E] rounded-2xl border-l-4 hover:bg-slate-800 transition-colors shadow-lg ${record.serviceType === 'BLOQUEIO' ? 'border-amber-500' : record.serviceType === 'TELEMETRIA' ? 'border-blue-500' : 'border-slate-500'}`}
+                className="bg-[#1C1C1E] rounded-xl overflow-hidden hover:bg-slate-800 transition-colors shadow-lg border border-slate-800 hover:border-slate-600 block flex flex-col group"
               >
-                <div className="flex gap-4 items-center">
-                  <div className="w-14 h-14 bg-slate-800 rounded-xl overflow-hidden flex items-center justify-center text-[10px] text-slate-500 italic shrink-0 font-mono">
-                    {record.photoUrl ? (
-                      <img src={record.photoUrl} alt="Thumb" className="w-full h-full object-cover opacity-80" />
-                    ) : record.videoUrl ? (
-                      <video src={record.videoUrl} className="w-full h-full object-cover opacity-80" />
-                    ) : (
-                      'SEM MÍDIA'
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-base font-bold text-white truncate">
-                      {record.vehicleMake} {record.vehicleModel}
-                      {record.vehicleYear && <span className="text-sm opacity-60 ml-2">{record.vehicleYear}</span>}
-                    </p>
-                    <p className="text-xs text-slate-400 truncate mt-1">
-                      {record.blockPoint ? (
-                        <span className="text-amber-500 font-bold">{record.blockPoint}</span>
-                      ) : (
-                        record.notes ? record.notes : 'Sem observações'
-                      )}
-                    </p>
-                    <p className="text-[10px] text-slate-500 font-mono mt-1">
-                      {new Date(record.date).toLocaleDateString()}
+                <div className="aspect-[4/3] bg-slate-800 relative flex items-center justify-center overflow-hidden">
+                  {record.vehiclePhotoUrl ? (
+                    <img src={record.vehiclePhotoUrl} alt="Veículo" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                  ) : record.photoUrl ? (
+                    <img src={record.photoUrl} alt="Thumb" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                  ) : record.videoUrl ? (
+                    <video src={record.videoUrl} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                  ) : (
+                    <div className="text-center p-4">
+                      <span className="text-[10px] text-slate-500 font-mono block mb-1">SEM FOTO</span>
+                      <span className="text-[10px] text-slate-600 font-mono block">Clique para adic.</span>
+                    </div>
+                  )}
+                  {record.serviceType === 'BLOQUEIO' && (
+                    <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]"></div>
+                  )}
+                  {record.serviceType === 'TELEMETRIA' && (
+                     <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]"></div>
+                  )}
+                </div>
+                <div className="p-3">
+                  <p className="text-sm font-bold text-white truncate">
+                    {record.vehicleMake} {record.vehicleModel}
+                  </p>
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-xs text-slate-400 truncate">
+                      {record.vehicleYear ? record.vehicleYear : (record.blockPoint || 'Sem ano')}
                     </p>
                   </div>
                 </div>
