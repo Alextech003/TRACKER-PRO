@@ -1,14 +1,14 @@
 {
-  "name": "Auto Teto Serviços",
-  "short_name": "AutoTeto",
+  "name": "Tracker PRO",
+  "short_name": "Tracker PRO",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#121214",
   "theme_color": "#1C1C1E",
-  "description": "Aplicativo para gerenciar serviços da Auto Teto.",
+  "description": "Aplicativo para gerenciar serviços da Tracker PRO.",
   "icons": [
     {
-      "src": "/icon.svg?v=2",
+      "src": "/icon.svg?v=3",
       "sizes": "192x192 512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"

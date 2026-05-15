@@ -1,9 +1,9 @@
-const CACHE_NAME = 'autoteto-cache-v2';
+const CACHE_NAME = 'autoteto-cache-v3';
 const urlsToCache = [
   '/',
   '/index.html',
-  '/icon.svg?v=2',
-  '/manifest.json?v=2'
+  '/icon.svg?v=3',
+  '/manifest.json?v=3'
 ];
 
 self.addEventListener('install', event => {
